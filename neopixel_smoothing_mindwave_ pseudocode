@@ -1,0 +1,34 @@
+call libraries
+neopixel.h	
+AVR.h
+	
+set vars
+neopixel data pin
+set vars for MindFlex code
+	set neopixel parameters
+
+setup
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
+  pinMode(LED, OUTPUT);
+  Serial.begin(BAUDRATE);
+
+  delay(3000) ;
+  Serial.write(194); 
+
+
+loop
+sync headset and rx dongle
+run the mindflex software
+generate number for attention
+generate number for meditation
+return those numbers
+
+
+OOP for lights
+	class for lights
+	constructor
+	function grabs numbers generated in loop
+do eased lighting effect based on Meditation and Attention
+		
