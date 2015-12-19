@@ -2,7 +2,7 @@
 // robot-RGBLED
 // Thomas Asmuth 2015
 // Attempt to merge two codes. Original codes in this repository
-// under  Neurosky-Neopixel and 
+// under  Neurosky-Neopixel and helloattention.pde
 /////////////////////////////////////////////////////////////////
 
 const int speakerPin = 12;
