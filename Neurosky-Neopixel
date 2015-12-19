@@ -1,0 +1,197 @@
+/* //////////////////////////////////////////////////////////////////////
+Neurosky-Neopixel Mashup 
+Thomas Asmuth 
+December 2015 for Signal Culture Research Residency
+ 
+Arduino Interface with Mindwave originally provided license free from
+NeuroSky, Inc.
+////////////////////////////////////////////////////////////////////// */
+ 
+ 
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+#include <avr/power.h>
+#endif
+
+#define PIN 6 //neopixel data pin
+#define LED 13
+#define warningLED 5
+#define BAUDRATE 115200 // the mindlex baudrate
+#define DEBUGOUTPUT 0
+
+
+// checksum variables for Mindflex
+byte generatedChecksum = 0;
+byte checksum = 0; 
+int payloadLength = 0;
+byte payloadData[64] = {
+  0};
+byte poorQuality = 0;
+byte attention = 0;
+byte meditation = 0;
+
+// system variables for Mindflex
+long lastReceivedPacket = 0;
+boolean bigPacket = false;
+
+// Neopixel parameters
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = Arduino pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, PIN, NEO_GRB + NEO_KHZ800);
+
+// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
+// pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
+// and minimize distance between Arduino and first pixel.  Avoid connecting
+// on a live circuit...if you must, connect GND first.
+
+//////////////////////////
+// Microprocessor Setup //
+//////////////////////////
+void setup() {
+
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
+  pinMode(LED, OUTPUT);
+  Serial.begin(BAUDRATE);
+
+  delay(3000) ;
+  Serial.write(194); 
+
+
+
+}
+
+////////////////////////////////
+// Read data from Serial UART //
+////////////////////////////////
+byte ReadOneByte() {
+
+  while(!Serial.available());
+  return Serial.read();
+
+#if DEBUGOUTPUT  
+  Serial.print((char)ByteRead);   // echo the same byte out the USB serial (for debug purposes)
+#endif
+
+  return ByteRead;
+}
+
+/////////////
+//MAIN LOOP//
+/////////////
+void loop() {
+
+
+  // Look for sync bytes
+  if(ReadOneByte() == 170) {
+    if(ReadOneByte() == 170) {
+
+      payloadLength = ReadOneByte();
+      if(payloadLength > 169)                      //Payload length can not be greater than 169
+          return;
+
+      generatedChecksum = 0;        
+      for(int i = 0; i < payloadLength; i++) {  
+        payloadData[i] = ReadOneByte();            //Read payload into memory
+        generatedChecksum += payloadData[i];
+      }   
+
+      checksum = ReadOneByte();                      //Read checksum byte from stream      
+      generatedChecksum = 255 - generatedChecksum;   //Take one's compliment of generated checksum
+
+        if(checksum == generatedChecksum) {    
+
+        poorQuality = 200;
+        attention = 0;
+        meditation = 0;
+
+        for(int i = 0; i < payloadLength; i++) {    // Parse the payload
+          switch (payloadData[i]) {
+          case 2:
+            i++;            
+            poorQuality = payloadData[i];
+            bigPacket = true;            
+            break;
+          case 4:
+            i++;
+            attention = payloadData[i];                        
+            break;
+          case 5:
+            i++;
+            meditation = payloadData[i];
+            break;
+          case 0x80:
+            i = i + 3;
+            break;
+          case 0x83:
+            i = i + 25;      
+            break;
+          default:
+            break;
+          } // switch
+        } // for loop
+
+#if !DEBUGOUTPUT
+
+        // *** Add your code here ***
+
+        if(bigPacket) {
+          if(poorQuality == 0)
+            digitalWrite(LED, HIGH);
+          else
+            digitalWrite(LED, LOW);
+//          Serial.print("PoorQuality: ");
+//          Serial.print(poorQuality, DEC);
+//          Serial.print(" Attention: ");
+//          Serial.print(attention, DEC);
+          Serial.print(" Meditation: ");
+          Serial.print(meditation, DEC);
+         
+//          if(attention > 40)
+//            digitalWrite(warningLED, HIGH);
+//          else
+//            digitalWrite(warningLED, LOW);
+
+          Serial.print(" Time since last packet: ");
+          Serial.print(millis() - lastReceivedPacket, DEC);
+          lastReceivedPacket = millis();
+          Serial.print("\n");
+        
+        int medi = meditation;
+        int attn = attention;
+        constrain(medi, 20, 75);
+         constrain(attn, 20, 75);
+        int translatedMed = map(int((attn + medi)/2), 20, 81, 0, 255);
+        
+        
+        int y = 0;
+        for(y=0; y<strip.numPixels(); y++) {
+          
+          strip.setPixelColor(y,0,0,translatedMed);
+              }
+          strip.show();
+//          delay(40);
+  }
+        
+                         
+        }
+#endif        
+        bigPacket = false;        
+      }
+      else {
+        // Checksum Error
+      }  // end if else for checksum
+    } // end if read 0xAA byte
+  } // end if read 0xAA byte
+
+
+
+
+
+
