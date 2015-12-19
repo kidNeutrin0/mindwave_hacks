@@ -1,0 +1,189 @@
+/////////////////////////////////////////////////////////////////
+// robot-RGBLED
+// Thomas Asmuth 2015
+// Attempt to merge two codes. Original codes in this repository
+// under 
+/////////////////////////////////////////////////////////////////
+
+const int speakerPin = 12;
+unsigned int lastMedReading;
+unsigned int currentMedReading;
+unsigned long previousMillis;
+
+
+void setup(){
+  Serial.begin(115200); // bits 
+  connectHeadset();
+}
+
+class Smoother {
+  //vars 
+  int dataPin;
+  long elapsedTime;
+  int divisor;
+
+  //Constructor - create an object for smoothing
+  // initialiaing the vars and state
+
+public:
+  Smoother (int dataPin_, long elapsedTime_, int divisor_  ) {
+    dataPin_ = dataPin;
+    elapsedTime_ = elapsedTime;
+    divisor_ = divisor;
+    previousMillis = 0;
+  }
+
+  void Ease() {
+    // check to see if it's time to take reading
+    unsigned long currentMillis = millis();
+
+    if(currentMillis - previousMillis >= elapsedTime) { 
+      //if the time has been met compare the last and current values
+      int amplitude = currentMedReading - lastMedReading;
+      int interval = int(amplitude/divisor); //divide amplitude into steps for incrementing
+      if (currentMedReading > lastMedReading) { 
+        for (int i = lastMedReading; i > currentMedReading; i =+ divisor) {
+           //insert code to increment i to blue factor in RBG method equal to currentMedReading
+        }
+      }
+      else if (currentMedReading < lastMedReading) { 
+        for (int i = lastMedReading; i > currentMedReading; i =- divisor) {
+          // insert code to decrement i to blue factor in RBG method equal to currentMedReading
+        }
+
+      }
+      else {
+      }
+      currentMedReading = lastMedReading;
+    }
+    else {
+    } 
+  }
+};
+
+Smoother theStrip(11,10,100);
+
+
+
+
+void loop() {
+  theStrip.Ease();
+  Serial.println(currentMedReading);
+}
+
+///////////////read Serial data////////
+byte readOneByte() {
+  while (!Serial.available()) { 
+    delay(5); 
+  }
+  return Serial.read();
+}
+
+///////////////end read Serial data////////
+
+int getCurrentMeditation() { 
+  // return attention percent (0.0 to 1.0)
+  // negative (-1, -2...) for error 
+  byte generatedChecksum = 0; 
+  byte checksum = 0;
+  int payloadLength = 0;
+  byte payloadData[64] = {
+    0    };
+  int poorQuality = 0; 
+  int attention = 0;
+  int meditation = 0;
+  Serial.flush(); // prevent serial buffer from filling up //
+
+  /* Sync */
+  if (170 != readOneByte()) return -1; 
+  if (170 != readOneByte()) return -1;
+
+  /* Length */
+  payloadLength = readOneByte();
+  if (payloadLength > 169) return -2;
+
+  /* Checksum */
+  generatedChecksum = 0;
+  for (int i = 0; i < payloadLength; i++) {
+    // Read payload into array: 
+    payloadData[i] = readOneByte(); 
+    generatedChecksum += payloadData[i];
+  }
+
+  generatedChecksum = 255 - generatedChecksum; 
+  checksum = readOneByte();
+  if (checksum != generatedChecksum) return -3;
+
+  /* Payload */
+  for (int i = 0; i < payloadLength; i++) {
+    switch (payloadData[i]) { 
+    case 0xD0:
+      sayHeadsetConnected();
+      break; 
+
+    case 2:
+      i++;
+      poorQuality = payloadData[i]; 
+      if (200 == poorQuality) {
+        //        setYellow(); 
+        return -4; 
+      }
+      break;
+    case 4: 
+      i++;
+      attention = payloadData[i]; 
+      break;
+    case 5:
+      i++;
+      meditation = payloadData[i];
+      currentMedReading = meditation;
+      break; 
+    case 0xD1: // Headset Not Found
+    case 0xD2: // Headset Disconnected case 0xD3: // Request Denied
+    case 0xd3:
+      wave(speakerPin, 900, 1500); 
+      //      setWhite();
+      return -5;
+      break;
+    case 0x80: // skip RAW 
+      i =+ 3;
+      break;
+    case 0x83: // skip ASIC_EEG_POWER
+      i =+ 25;
+      break; 
+    } // switch
+  } // for
+  return (int)currentMedReading; 
+}
+
+void wave(int pin, float frequency, int duration) {
+  float period = 1 / frequency * 1000 * 1000; // microseconds 
+  long int startTime = millis();
+  while (millis() - startTime < duration) {
+    digitalWrite(pin, HIGH); 
+    delayMicroseconds(period / 2); 
+    digitalWrite(pin, LOW); 
+    delayMicroseconds(period / 2);
+  }
+}
+
+void sayHeadsetConnected() {
+  wave(speakerPin, 440, 40); 
+  delay(25); 
+  wave(speakerPin, 300, 20); 
+  wave(speakerPin, 540, 40); 
+  delay(25); 
+  wave(speakerPin, 440, 20); 
+  wave(speakerPin, 640, 40); 
+  delay(25); 
+  wave(speakerPin, 540, 40); 
+  delay(25);
+} 
+
+void connectHeadset() {
+  analogWrite(greenPin,0); 
+  delay(3000); 
+  Serial.write(0xc2); 
+  
+}
+
