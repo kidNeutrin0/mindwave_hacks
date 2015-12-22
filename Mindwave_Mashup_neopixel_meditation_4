@@ -8,7 +8,7 @@
 
 //define dataPin and then number of pixels
 #define PIN            6
-#define NUMPIXELS      30
+#define NUMPIXELS      60
 
 // set the frequency and otehr params 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
@@ -50,16 +50,16 @@ void loop() {
   float att = getAttention(); 
   if (att > 0) {
     setBlueToRed(att);
-      unsigned long currentMillis = millis();
-  //if time has elapsed pass measure att. pass to currentAtt
-//  if(currentMillis - previousMillis > interval){
-//    previousMillis = currentMillis; //reset currentMillis
-//    currentAtt = att;
-//    Serial.println(att);
-//    Serial.println(currentAtt);
-//  }
- 
-//  previousAtt = currentAtt;
+    unsigned long currentMillis = millis();
+    //if time has elapsed pass measure att. pass to currentAtt
+    //  if(currentMillis - previousMillis > interval){
+    //    previousMillis = currentMillis; //reset currentMillis
+    //    currentAtt = att;
+    //    Serial.println(att);
+    //    Serial.println(currentAtt);
+    //  }
+
+    //  previousAtt = currentAtt;
   }
   toggleTinyLed();
 
@@ -89,7 +89,7 @@ float getAttention() {
   byte checksum = 0;
   int payloadLength = 0;
   byte payloadData[64] = {
-    0        };
+    0          };
   int poorQuality = 0; 
   float attention = 0;
   Serial.flush(); // prevent serial buffer from filling up //
@@ -120,10 +120,7 @@ float getAttention() {
     case 0xD0:
       sayHeadsetConnected();
       break; 
-    case 4: 
-      i++;
-      attention = payloadData[i]; 
-      break;
+
     case 2:
       i++;
       poorQuality = payloadData[i]; 
@@ -131,6 +128,10 @@ float getAttention() {
         setYellow(); 
         return -4; 
       }
+      break;
+    case 4: 
+      i++;
+      attention = payloadData[i]; 
       break;
     case 0xD1: // Headset Not Found
     case 0xD2: // Headset Disconnected case 0xD3: // Request Denied
@@ -153,9 +154,9 @@ float getAttention() {
 /*** Outputs ***/
 void setBlueToRed(float redPercent) {
   int red = redPercent * 255;
-  int blue = (1 - redPercent) * 255; 
-//  setColor(red, 0, blue);
-  colorWipe(pixels.Color(red, 0,0), 100);
+  int blue = ((1 - redPercent)/10) * 255; 
+  //  setColor(red, 0, blue);
+  colorWipe(pixels.Color(red, 0,0), 30);
   pixels.show();
 }
 void setGreen() {
@@ -210,5 +211,6 @@ void colorWipe(uint32_t c, uint8_t wait) {
     delay(wait);
   }
 }
+
 
 
